@@ -17,4 +17,5 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build -t devops-lab-api:${{ github.sha }} ./app
+          docker build -t devops-lab-api:latest ./app
+

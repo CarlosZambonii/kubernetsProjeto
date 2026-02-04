@@ -11,7 +11,7 @@ def root():
     return {
         "service": APP_NAME,
         "env": APP_ENV,
-        "status": "running"
+        "status": "running v2"
     }
 
 @app.get("/health")

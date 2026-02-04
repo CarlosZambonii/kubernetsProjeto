@@ -7,18 +7,25 @@ spec:
   selector:
     matchLabels:
       app: devops-lab-api
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+
   template:
     metadata:
       labels:
         app: devops-lab-api
     spec:
       containers:
-      - name: api
-        image: devops-lab-api:1.0
-        ports:
-          - containerPort: 8000
-        envFrom:
-          - configMapRef:
-              name: devops-lab-config
-          - secretRef:
-              name: devops-lab-secret
+        - name: api
+          image: devops-lab-api:latest
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: devops-lab-config
+            - secretRef:
+                name: devops-lab-secret
