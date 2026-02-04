@@ -21,9 +21,34 @@ spec:
     spec:
       containers:
         - name: api
-          image: devops-lab-api:latest
+          image: devops-lab-api:1.0
           ports:
             - containerPort: 8000
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            failureThreshold: 3
+
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 3
+
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "250m"
+              memory: "256Mi"
+
           envFrom:
             - configMapRef:
                 name: devops-lab-config
