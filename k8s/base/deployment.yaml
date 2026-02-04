@@ -13,14 +13,12 @@ spec:
         app: devops-lab-api
     spec:
       containers:
-        - name: api
-          image: devops-lab-api:1.0
-          imagePullPolicy: IfNotPresent
-          ports:
-            - containerPort: 8000
-          readinessProbe:
-            httpGet:
-              path: /health
-              port: 8000
-            initialDelaySeconds: 5
-            periodSeconds: 10
+      - name: api
+        image: devops-lab-api:1.0
+        ports:
+          - containerPort: 8000
+        envFrom:
+          - configMapRef:
+              name: devops-lab-config
+          - secretRef:
+              name: devops-lab-secret

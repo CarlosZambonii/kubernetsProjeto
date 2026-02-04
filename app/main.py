@@ -1,14 +1,16 @@
+import os
 from fastapi import FastAPI
 
-app = FastAPI(
-    title="Cloud Ready DevOps Lab",
-    version="1.0.0"
-)
+app = FastAPI()
+
+APP_NAME = os.getenv("APP_NAME", "app-default")
+APP_ENV = os.getenv("APP_ENV", "local")
 
 @app.get("/")
 def root():
     return {
-        "service": "cloud-ready-devops-lab",
+        "service": APP_NAME,
+        "env": APP_ENV,
         "status": "running"
     }
 
