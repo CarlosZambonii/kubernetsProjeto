@@ -28,7 +28,7 @@
 - [Post-Mortem: Incidente Simulado](#post-mortem-incidente-simulado)
 - [Principais Desafios Técnicos](#principais-desafios-técnicos)
 - [Como Executar](#como-executar)
-- [Por que Local ao Invés de Cloud](#por-que-local-ao-invés-de-cloud)
+
 - [Migração para AWS](#migração-para-aws)
 - [Competências Demonstradas](#competências-demonstradas)
 
@@ -1118,22 +1118,6 @@ ansible-playbook -i ansible/inventory/hosts ansible/playbooks/incident.yml
 
 ---
 
-## Por que Local ao Invés de Cloud
-
-### Custos AWS (Estimativa Mensal)
-
-| Serviço | Custo/mês (US East) |
-|---------|---------------------|
-| EKS Control Plane | $73.00 |
-| EC2 t3.medium (2x nodes) | ~$60.00 |
-| Application Load Balancer | ~$16.00 |
-| NAT Gateway | ~$32.00 |
-| CloudWatch Logs | ~$2.50 |
-| ECR + EBS + Transfer | ~$8.00 |
-| **TOTAL** | **~$191.50/mês** |
-
-**Em reais (R$ 5,00 = US$ 1,00):** R$ 950-1.500/mês
-
 ### Vantagens do Kind
 
 | Aspecto | Local (Kind) | AWS (Produção) |
@@ -1155,8 +1139,6 @@ API do Kubernetes? IDÊNTICA.
 Conceitos? IDÊNTICOS.
 Comandos? IDÊNTICOS.
 ```
-
-**Conhecimento transferível:** 100%
 
 ---
 
