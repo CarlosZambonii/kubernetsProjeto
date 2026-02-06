@@ -1,0 +1,19 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: devops-lab-api-alerts
+  namespace: monitoring
+  labels:
+    release: monitoring
+spec:
+  groups:
+  - name: devops-lab-api.rules
+    rules:
+    - alert: DevopsLabAPIDown
+      expr: up{job="devops-lab-api"} == 0
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: "API devops-lab-api fora do ar"
+        description: "O Prometheus não consegue scrape da API há mais de 1 minuto."

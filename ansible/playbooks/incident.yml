@@ -1,0 +1,15 @@
+- name: Simular incidente
+  hosts: local
+  gather_facts: false
+
+  tasks:
+    - name: Derrubar aplicação
+      command: kubectl scale deployment devops-lab-api --replicas=0
+
+    - name: Esperar 60 segundos
+      pause:
+        seconds: 60
+
+    - name: Restaurar aplicação
+      command: kubectl scale deployment devops-lab-api --replicas=1
+

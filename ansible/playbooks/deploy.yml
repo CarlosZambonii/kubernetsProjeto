@@ -1,0 +1,10 @@
+- name: Deploy DevOps Lab
+  hosts: local
+  gather_facts: false
+
+  tasks:
+    - name: Aplicar manifests Kubernetes
+      command: kubectl apply -f ../../k8s/base/
+
+    - name: Esperar rollout completar
+      command: kubectl rollout status deployment/devops-lab-api

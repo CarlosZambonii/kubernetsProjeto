@@ -11,7 +11,7 @@ spec:
   strategy:
     type: RollingUpdate
     rollingUpdate:
-      maxUnavailable: 0
+      maxUnavailable: 1
       maxSurge: 1
 
   template:
@@ -21,7 +21,8 @@ spec:
     spec:
       containers:
         - name: api
-          image: devops-lab-api:1.0
+          image: devops-lab-api:metrics
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8000
 

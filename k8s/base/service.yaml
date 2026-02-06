@@ -2,11 +2,14 @@ apiVersion: v1
 kind: Service
 metadata:
   name: devops-lab-api
+  labels:
+    app: devops-lab-api
+    release: prometheus
 spec:
-  type: NodePort
+  type: ClusterIP
   selector:
     app: devops-lab-api
   ports:
-    - port: 80
+    - name: http
+      port: 8000
       targetPort: 8000
-      nodePort: 30007
