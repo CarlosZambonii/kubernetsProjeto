@@ -1303,58 +1303,6 @@ sequenceDiagram
     Graf->>Dev: Exibe dashboard
 ```
 
-### Arquitetura de Observabilidade
-
-```mermaid
-graph LR
-    subgraph Application["Aplicação"]
-        APP[FastAPI]
-        METRICS[/metrics endpoint]
-        APP --> METRICS
-    end
-    
-    subgraph Discovery["Descoberta Automática"]
-        SVC[Service]
-        SM[ServiceMonitor]
-        SVC --> SM
-    end
-    
-    subgraph Collection["Coleta"]
-        PROM[Prometheus]
-        SCRAPE[Scrape Config]
-        SM --> SCRAPE
-        SCRAPE --> PROM
-    end
-    
-    subgraph Storage["Armazenamento"]
-        TSDB[Time Series DB]
-        PROM --> TSDB
-    end
-    
-    subgraph Alerting["Alertas"]
-        RULES[PrometheusRule]
-        EVAL[Alert Evaluation]
-        AM[Alertmanager]
-        TSDB --> RULES
-        RULES --> EVAL
-        EVAL --> AM
-    end
-    
-    subgraph Visualization["Visualização"]
-        GRAF[Grafana]
-        DASH[Dashboards]
-        TSDB --> GRAF
-        GRAF --> DASH
-    end
-    
-    METRICS -->|HTTP GET| SCRAPE
-    
-    style APP fill:#009688
-    style PROM fill:#E6522C
-    style GRAF fill:#F46800
-    style SM fill:#326CE5
-    style RULES fill:#FF6B6B
-```
 
 ### Fluxo de Simulação de Incidente
 
