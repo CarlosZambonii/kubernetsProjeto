@@ -28,15 +28,15 @@
 - [Post-Mortem: Incidente Simulado](#post-mortem-incidente-simulado)
 - [Principais Desafios Técnicos](#principais-desafios-técnicos)
 - [Como Executar](#como-executar)
-
-- [Migração para AWS](#migração-para-aws)
+- [Por que Local ao Invés de Cloud](#por-que-local-ao-invés-de-cloud)
+- [Infraestrutura Completa](#infraestrutura-completa)
 - [Competências Demonstradas](#competências-demonstradas)
 
 ---
 
 ## Visão Geral
 
-Laboratório DevOps completo que simula ambiente de produção utilizando **Kubernetes local (Kind)**, **Prometheus**, **Grafana**, **alertas automatizados** e **automação com Ansible**.
+Laboratório DevOps completo que simula ambiente de produção utilizando **VM Ubuntu (Proxmox VPS)**, **Kubernetes local (Kind)**, **Prometheus**, **Grafana**, **alertas automatizados** e **automação com Ansible**.
 
 O projeto implementa:
 
@@ -47,6 +47,7 @@ O projeto implementa:
 - Automação de deploy com Ansible
 - Simulação de incidentes controlados
 - Documentação de post-mortem seguindo práticas SRE
+- CI/CD pipeline com GitHub Actions
 
 ### Objetivos Técnicos
 
@@ -58,7 +59,12 @@ O projeto implementa:
 - Documentar incidentes com metodologia post-mortem
 - Validar comportamento do sistema sob estresse
 
-**Todo o ambiente roda localmente, sem custos de cloud.**
+### Ambiente
+
+**Infraestrutura:** VM Ubuntu rodando em Proxmox VPS  
+**Orquestração:** Kubernetes via Kind (Kubernetes in Docker)  
+**Acesso:** SSH tunnel + port-forward para segurança  
+**Portabilidade:** Arquitetura cloud-native, facilmente adaptável para AWS/Azure/GCP
 
 ---
 
@@ -972,6 +978,41 @@ metadata:
 
 ---
 
+### 9. ImagePullBackOff em Cluster Remoto
+
+**Problema:** Pods falhando com `ImagePullBackOff` na VPS.
+
+**Sintomas:**
+- `kubectl get pods` mostra ErrImagePull
+- Pod não consegue baixar imagem
+
+**Causa:** Cluster Kind na VPS não tinha acesso à imagem Docker construída localmente.
+
+**Solução:**
+1. Build da imagem na VPS:
+   ```bash
+   docker build -t devops-lab-api:latest ./app
+   ```
+
+2. Carregar no Kind:
+   ```bash
+   kind load docker-image devops-lab-api:latest --name devops-lab
+   ```
+
+3. Adicionar no Deployment:
+   ```yaml
+   spec:
+     containers:
+     - name: api
+       image: devops-lab-api:latest
+       imagePullPolicy: Never  # Força uso da imagem local
+   ```
+
+**Lição aprendida:**
+Cluster remoto não compartilha cache Docker local. Imagens precisam ser explicitamente carregadas ou disponibilizadas via registry.
+
+---
+
 ### Resumo
 
 | Erro | Causa | Tempo Perdido |
@@ -984,8 +1025,9 @@ metadata:
 | Ansible path | Caminho relativo errado | ~1 hora |
 | ALERTS vazio | Query errada | ~2 horas |
 | PrometheusRule ignorado | Falta label | ~1 hora |
+| ImagePullBackOff VPS | Imagem não carregada no Kind | ~2 horas |
 
-**Total de troubleshooting:** ~12 horas
+**Total de troubleshooting:** ~14 horas
 
 ---
 
@@ -1118,98 +1160,318 @@ ansible-playbook -i ansible/inventory/hosts ansible/playbooks/incident.yml
 
 ---
 
-### Vantagens do Kind
+## Por que Local ao Invés de Cloud
 
-| Aspecto | Local (Kind) | AWS (Produção) |
-|---------|--------------|----------------|
-| **Custo** | R$ 0,00 | R$ 950+/mês |
-| **Aprendizado** | Controle total | Abstração |
-| **Velocidade** | Deploy instantâneo | Minutes |
+### Ambiente de Desenvolvimento Real
+
+Este projeto foi desenvolvido para rodar em ambiente local/VPS por questões práticas e de custo, mas utiliza as mesmas tecnologias e padrões de produção cloud. A arquitetura é **cloud-native** e pode ser facilmente adaptada para ambientes como AWS EKS, Azure AKS ou Google GKE, necessitando apenas ajustes em componentes de infraestrutura (LoadBalancer, Storage, Registry).
+
+### Benefícios do Ambiente Local
+
+| Aspecto | Local/VPS | Cloud Gerenciada |
+|---------|-----------|------------------|
+| **Custo** | R$ 0,00 (local) ou R$ 30-50/mês (VPS) | R$ 950+/mês |
+| **Aprendizado** | Controle total de cada camada | Abstrações escondem detalhes |
 | **Experimentação** | Ilimitada | Limitada por custo |
+| **Troubleshooting** | Acesso total ao sistema | Logs e métricas limitados |
 
-### Kubernetes Real
+### Portabilidade
 
-O Kind roda Kubernetes oficial. A API é idêntica ao EKS/AKS/GKE.
+O conhecimento e código desenvolvidos aqui são 100% transferíveis para ambientes cloud:
 
+- Manifests Kubernetes são idênticos
+- Prometheus Operator funciona da mesma forma
+- ServiceMonitors e PrometheusRules não mudam
+- Ansible playbooks precisam apenas de ajuste de inventory
+- Conceitos de observabilidade são os mesmos
+
+**Migração para cloud:** Trocar Kind por EKS/AKS/GKE, ajustar Service type para LoadBalancer, e configurar registry (ECR/ACR/GCR). O restante permanece igual.
+
+---
+
+## Infraestrutura Completa
+
+### Visão Geral da Infraestrutura
+
+```mermaid
+graph TB
+    subgraph VPS["VM Ubuntu (Proxmox VPS)"]
+        subgraph Docker["Docker Engine"]
+            subgraph Kind["Kind Cluster"]
+                subgraph Apps["Aplicação"]
+                    API[FastAPI App<br/>com métricas]
+                    API_SVC[Service ClusterIP]
+                end
+                
+                subgraph Monitoring["Stack de Monitoramento"]
+                    PROM[Prometheus<br/>Operator]
+                    GRAF[Grafana]
+                    AM[Alertmanager]
+                    KSM[Kube State<br/>Metrics]
+                    NE[Node<br/>Exporter]
+                end
+                
+                subgraph Config["Configuração"]
+                    SM[ServiceMonitor]
+                    PR[PrometheusRule]
+                    CM[ConfigMaps]
+                    SEC[Secrets]
+                end
+            end
+        end
+        
+        subgraph Tools["Ferramentas"]
+            ANSIBLE[Ansible]
+            KUBECTL[kubectl]
+        end
+    end
+    
+    subgraph External["Acesso Externo"]
+        DEV[Desenvolvedor]
+        SSH[SSH Tunnel]
+    end
+    
+    subgraph CI["GitHub"]
+        GHA[GitHub Actions<br/>CI/CD Pipeline]
+    end
+    
+    API --> API_SVC
+    API_SVC --> SM
+    SM --> PROM
+    PROM --> PR
+    PROM --> GRAF
+    PROM --> AM
+    
+    ANSIBLE -.->|deploy.yml| Kind
+    ANSIBLE -.->|incident.yml| Kind
+    
+    DEV --> SSH
+    SSH -.->|port-forward| GRAF
+    SSH -.->|port-forward| PROM
+    SSH -.->|kubectl| KUBECTL
+    
+    GHA -.->|valida manifests| Kind
+    
+    style API fill:#009688
+    style PROM fill:#E6522C
+    style GRAF fill:#F46800
+    style ANSIBLE fill:#EE0000
+    style Kind fill:#326CE5
 ```
-AWS EKS = Kubernetes + infraestrutura AWS
-Kind    = Kubernetes + infraestrutura local
 
-API do Kubernetes? IDÊNTICA.
-Conceitos? IDÊNTICOS.
-Comandos? IDÊNTICOS.
+### Fluxo de Deploy e Monitoramento
+
+```mermaid
+sequenceDiagram
+    participant Dev as Desenvolvedor
+    participant GH as GitHub
+    participant GHA as GitHub Actions
+    participant Ansible as Ansible
+    participant Docker as Docker
+    participant Kind as Kind Cluster
+    participant App as FastAPI App
+    participant Prom as Prometheus
+    participant Graf as Grafana
+    
+    Dev->>GH: git push
+    GH->>GHA: Trigger CI/CD
+    
+    GHA->>GHA: Validate manifests
+    GHA->>GHA: Build & Test image
+    GHA->>Dev: ✓ Pipeline OK
+    
+    Dev->>Ansible: ansible-playbook deploy.yml
+    
+    Ansible->>Docker: docker build
+    Docker->>Docker: Cria imagem
+    
+    Ansible->>Kind: kind load docker-image
+    Kind->>Kind: Imagem disponível
+    
+    Ansible->>Kind: kubectl apply -f k8s/
+    Kind->>App: Cria Deployment
+    App->>App: Pods iniciam
+    App->>App: Expõe /metrics
+    
+    Prom->>App: Scrape métricas (15s)
+    App->>Prom: Retorna http_requests_total
+    
+    Prom->>Prom: Avalia PrometheusRule
+    
+    Graf->>Prom: Query métricas
+    Prom->>Graf: Retorna dados
+    Graf->>Dev: Exibe dashboard
+```
+
+### Arquitetura de Observabilidade
+
+```mermaid
+graph LR
+    subgraph Application["Aplicação"]
+        APP[FastAPI]
+        METRICS[/metrics endpoint]
+        APP --> METRICS
+    end
+    
+    subgraph Discovery["Descoberta Automática"]
+        SVC[Service]
+        SM[ServiceMonitor]
+        SVC --> SM
+    end
+    
+    subgraph Collection["Coleta"]
+        PROM[Prometheus]
+        SCRAPE[Scrape Config]
+        SM --> SCRAPE
+        SCRAPE --> PROM
+    end
+    
+    subgraph Storage["Armazenamento"]
+        TSDB[Time Series DB]
+        PROM --> TSDB
+    end
+    
+    subgraph Alerting["Alertas"]
+        RULES[PrometheusRule]
+        EVAL[Alert Evaluation]
+        AM[Alertmanager]
+        TSDB --> RULES
+        RULES --> EVAL
+        EVAL --> AM
+    end
+    
+    subgraph Visualization["Visualização"]
+        GRAF[Grafana]
+        DASH[Dashboards]
+        TSDB --> GRAF
+        GRAF --> DASH
+    end
+    
+    METRICS -->|HTTP GET| SCRAPE
+    
+    style APP fill:#009688
+    style PROM fill:#E6522C
+    style GRAF fill:#F46800
+    style SM fill:#326CE5
+    style RULES fill:#FF6B6B
+```
+
+### Fluxo de Simulação de Incidente
+
+```mermaid
+sequenceDiagram
+    participant Ops as Operador
+    participant Ansible as Ansible
+    participant Kind as Kind
+    participant Pods as Application Pods
+    participant Prom as Prometheus
+    participant Alert as Alert System
+    participant Graf as Grafana
+    
+    Note over Ops,Graf: Estado Normal - App Rodando
+    
+    Prom->>Pods: Scrape /metrics
+    Pods->>Prom: up=1
+    Alert->>Alert: DevOpsLabAPIDown: Inactive
+    
+    Note over Ops,Graf: Início do Incidente
+    
+    Ops->>Ansible: ansible-playbook incident.yml
+    Ansible->>Kind: kubectl scale --replicas=0
+    Kind->>Pods: Derruba todos os Pods
+    
+    Note over Pods: Pods terminados
+    
+    Prom->>Pods: Scrape /metrics
+    Pods--xProm: Connection refused
+    Prom->>Prom: up{service="devops-lab-api"} desaparece
+    
+    Alert->>Alert: absent(up{...}) == 1
+    Alert->>Alert: Estado: PENDING
+    
+    Note over Alert: Aguarda 1 minuto (for: 1m)
+    
+    Alert->>Alert: Estado: FIRING
+    Graf->>Graf: Dashboard mostra: Status DOWN
+    
+    Note over Ops,Graf: Recuperação Automática
+    
+    Ansible->>Ansible: sleep 60s
+    Ansible->>Kind: kubectl scale --replicas=1
+    Kind->>Pods: Recria Pods
+    
+    Note over Pods: Pods rodando novamente
+    
+    Prom->>Pods: Scrape /metrics
+    Pods->>Prom: up=1
+    
+    Alert->>Alert: Condição não satisfeita
+    Alert->>Alert: Estado: RESOLVED
+    Graf->>Graf: Dashboard mostra: Status UP
+```
+
+### Camadas da Stack
+
+```mermaid
+graph TB
+    subgraph Layer1["Camada de Infraestrutura"]
+        VPS[VM Ubuntu - Proxmox]
+        DOCKER[Docker Engine]
+        VPS --> DOCKER
+    end
+    
+    subgraph Layer2["Camada de Orquestração"]
+        KIND[Kind Cluster]
+        KUBECTL[kubectl CLI]
+        DOCKER --> KIND
+    end
+    
+    subgraph Layer3["Camada de Aplicação"]
+        APP[FastAPI Application]
+        SVC[Kubernetes Service]
+        DEPLOY[Kubernetes Deployment]
+        KIND --> DEPLOY
+        DEPLOY --> APP
+        APP --> SVC
+    end
+    
+    subgraph Layer4["Camada de Configuração"]
+        CM[ConfigMaps]
+        SEC[Secrets]
+        SM[ServiceMonitor]
+        PR[PrometheusRule]
+        KIND --> CM
+        KIND --> SEC
+        KIND --> SM
+        KIND --> PR
+    end
+    
+    subgraph Layer5["Camada de Observabilidade"]
+        PROM[Prometheus]
+        GRAF[Grafana]
+        AM[Alertmanager]
+        KIND --> PROM
+        KIND --> GRAF
+        KIND --> AM
+    end
+    
+    subgraph Layer6["Camada de Automação"]
+        ANSIBLE[Ansible Playbooks]
+        GHA[GitHub Actions]
+        ANSIBLE -.-> KIND
+        GHA -.-> KIND
+    end
+    
+    style APP fill:#009688
+    style PROM fill:#E6522C
+    style GRAF fill:#F46800
+    style ANSIBLE fill:#EE0000
+    style KIND fill:#326CE5
 ```
 
 ---
 
-## Migração para AWS
-
-### Componentes: Local → AWS
-
-| Local | AWS |
-|-------|-----|
-| Kind cluster | EKS cluster |
-| Docker local | ECR |
-| Port-forward | ALB/NLB |
-| ConfigMap | ConfigMap (idêntico) |
-| Secret | Secrets Manager (opcional) |
-| Prometheus | Mesma stack |
-| Grafana | Mesma stack |
-
-### Criação do Cluster EKS
-
-```bash
-eksctl create cluster \
-  --name devops-lab-prod \
-  --region us-east-1 \
-  --nodegroup-name workers \
-  --node-type t3.medium \
-  --nodes 2 \
-  --managed
-```
-
-### Configuração ECR
-
-```bash
-aws ecr create-repository --repository-name devops-lab-api
-
-aws ecr get-login-password --region us-east-1 | \
-  docker login --username AWS --password-stdin \
-  <ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com
-
-docker tag devops-lab-api:latest \
-  <ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/devops-lab-api:latest
-
-docker push <ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/devops-lab-api:latest
-```
-
-### Atualização do Deployment
-
-```yaml
-spec:
-  template:
-    spec:
-      containers:
-      - name: api
-        image: <ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/devops-lab-api:latest
-```
-
-### Exposição via LoadBalancer
-
-```yaml
-apiVersion: v1
-kind: Service
-metadata:
-  name: devops-lab-api
-spec:
-  type: LoadBalancer
-  selector:
-    app: devops-lab-api
-  ports:
-  - protocol: TCP
-    port: 80
-    targetPort: 8000
-```
+## Contato
 
 **Carlos Zambonii**
 
@@ -1217,3 +1479,9 @@ spec:
 [![GitHub](https://img.shields.io/badge/GitHub-CarlosZambonii-181717?style=for-the-badge&logo=github)](https://github.com/CarlosZambonii)
 
 ---
+
+<div align="center">
+
+Última atualização: Fevereiro 2026
+
+</div>
